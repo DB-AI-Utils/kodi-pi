@@ -5,14 +5,14 @@ import * as recorder from '../services/recorder.js';
 
 const router = Router();
 const RECORDINGS_DIR = path.resolve(process.env.RECORDINGS_DIR || './recordings');
-const FILENAME_PATTERN = /^camera_(a|b)_[\d\-T]+\.mp4$/;
+const FILENAME_PATTERN = /^camera_[ab]_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.mp4$/;
 
 const GO2RTC_API = process.env.GO2RTC_API || 'http://localhost:1984';
 const CAMERA_WAIT_TIMEOUT_MS = 30_000;
 const CAMERA_POLL_INTERVAL_MS = 2_000;
 
 async function checkCamerasConnected() {
-  const res = await fetch(`${GO2RTC_API}/api/streams`);
+  const res = await fetch(`${GO2RTC_API}/api/streams`, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error('go2rtc API unreachable');
   const streams = await res.json();
 
@@ -63,7 +63,8 @@ router.post('/record/start', async (req, res) => {
     const results = await recorder.startAll();
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message, cameras: err.cameras });
+    const status = err.cameras ? 503 : 500;
+    res.status(status).json({ error: err.message, cameras: err.cameras });
   }
 });
 
