@@ -227,6 +227,13 @@
   let timerInterval = null;
   let pollInterval = null;
   let consecutiveFailures = 0;
+  let resultTimeout = null;
+
+  function esc(s) {
+    const el = document.createElement('span');
+    el.textContent = String(s);
+    return el.innerHTML;
+  }
 
   function formatElapsed(seconds) {
     const m = Math.floor(seconds / 60);
@@ -310,7 +317,8 @@
     el.textContent = message;
     el.className = 'result-msg ' + (isError ? 'error' : 'success');
     el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 8000);
+    if (resultTimeout) clearTimeout(resultTimeout);
+    resultTimeout = setTimeout(() => { el.style.display = 'none'; }, 8000);
   }
 
   function syncStateFromStatus(data) {
@@ -476,11 +484,11 @@
         <div class="rec-item">
           <div class="rec-top">
             <span class="rec-camera">${r.camera === 'camera_a' ? 'Cam A' : 'Cam B'}</span>
-            <span class="rec-time">${formatTimestamp(r.timestamp)}</span>
+            <span class="rec-time">${esc(formatTimestamp(r.timestamp))}</span>
           </div>
           <div class="rec-details">
-            <span>${formatDuration(r.duration)}</span>
-            <span>${formatSize(r.size)}</span>
+            <span>${esc(formatDuration(r.duration))}</span>
+            <span>${esc(formatSize(r.size))}</span>
           </div>
         </div>
       `).join('');
