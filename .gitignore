@@ -2,3 +2,4 @@ node_modules/
 recordings/*.mp4
 recordings/*.json
 .env
+go2rtc.yaml

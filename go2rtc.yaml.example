@@ -1,0 +1,3 @@
+streams:
+  camera_a: xiaomi://host?did=YOUR_DEVICE_ID_A&token=YOUR_TOKEN_A&model=chuangmi.camera.039a04
+  camera_b: xiaomi://host?did=YOUR_DEVICE_ID_B&token=YOUR_TOKEN_B&model=chuangmi.camera.039a04
