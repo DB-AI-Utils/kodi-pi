@@ -4,19 +4,6 @@ import fs from 'fs';
 import * as recorder from '../services/recorder.js';
 
 const router = Router();
-
-const PI_TOKEN = process.env.PI_TOKEN;
-
-router.use((req, res, next) => {
-  if (!PI_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
-
-  const header = req.headers.authorization;
-  if (!header || header !== `Bearer ${PI_TOKEN}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-});
-
 const RECORDINGS_DIR = path.resolve(process.env.RECORDINGS_DIR || './recordings');
 const FILENAME_PATTERN = /^camera_(a|b)_[\d\-T]+\.mp4$/;
 
