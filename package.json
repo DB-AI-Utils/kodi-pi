@@ -1,0 +1,15 @@
+{
+  "name": "kodi-pi",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Raspberry Pi dual-camera recording service for Xiaomi C400 cameras",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
