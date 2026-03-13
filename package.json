@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Raspberry Pi dual-camera recording service for Xiaomi C400 cameras",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
