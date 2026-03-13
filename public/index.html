@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Kodi Pi</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100dvh;
+    padding: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .banner {
+    display: none;
+    background: #c0392b;
+    color: #fff;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .banner.visible { display: block; }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #a0a0c0;
+  }
+
+  .status-row {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 24px;
+  }
+
+  .cam-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.green { background: #27ae60; box-shadow: 0 0 6px #27ae6088; }
+  .dot.red { background: #c0392b; box-shadow: 0 0 6px #c0392b88; }
+  .dot.grey { background: #555; }
+
+  .record-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100px;
+    border: none;
+    border-radius: 16px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    -webkit-user-select: none;
+    user-select: none;
+    gap: 6px;
+  }
+  .record-btn:active:not(:disabled) { transform: scale(0.97); }
+  .record-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .record-btn.idle {
+    background: #27ae60;
+    color: #fff;
+  }
+
+  .record-btn.recording {
+    background: #c0392b;
+    color: #fff;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .record-btn.loading {
+    background: #555;
+    color: #999;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.5); }
+    50% { box-shadow: 0 0 0 12px rgba(192, 57, 43, 0); }
+  }
+
+  .elapsed {
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-msg {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .result-msg.success { background: #1e3a2f; color: #6fcf97; }
+  .result-msg.error { background: #3a1e1e; color: #eb5757; }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 28px;
+    margin-bottom: 12px;
+  }
+
+  .recordings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rec-item {
+    background: #16213e;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .rec-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .rec-camera {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #0f3460;
+    color: #7fb3e0;
+  }
+
+  .rec-time {
+    font-size: 14px;
+    color: #ccc;
+  }
+
+  .rec-details {
+    font-size: 12px;
+    color: #777;
+    display: flex;
+    gap: 16px;
+  }
+
+  .empty-msg {
+    text-align: center;
+    color: #555;
+    font-size: 14px;
+    padding: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="banner" class="banner">Connection lost</div>
+<h1>Kodi Pi</h1>
+
+<div class="status-row">
+  <div class="cam-status">
+    <div id="dot-a" class="dot grey"></div>
+    <span id="label-a">Camera A</span>
+  </div>
+  <div class="cam-status">
+    <div id="dot-b" class="dot grey"></div>
+    <span id="label-b">Camera B</span>
+  </div>
+</div>
+
+<button id="rec-btn" class="record-btn idle" onclick="handleRecordClick()">
+  Start Recording
+</button>
+
+<div id="result-msg" class="result-msg" style="display:none"></div>
+
+<div id="recordings-section">
+  <div class="section-title">Recent Recordings</div>
+  <div id="recordings-list" class="recordings-list">
+    <div class="empty-msg">Loading...</div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  let state = 'idle'; // 'idle' | 'recording' | 'loading'
+  let serverStartTime = null;
+  let timerInterval = null;
+  let pollInterval = null;
+  let consecutiveFailures = 0;
+
+  function formatElapsed(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return '--';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function formatTimestamp(ts) {
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return ts;
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+        ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    } catch { return ts; }
+  }
+
+  function updateConnectionDots(statusData) {
+    for (const [cam, dotId, labelId] of [['camera_a', 'dot-a', 'label-a'], ['camera_b', 'dot-b', 'label-b']]) {
+      const dot = $(dotId);
+      const label = $(labelId);
+      const streams = statusData.streams;
+      const connected = streams && streams[cam]?.producers?.length > 0;
+
+      dot.className = 'dot ' + (connected ? 'green' : (streams === null ? 'grey' : 'red'));
+      const displayName = cam === 'camera_a' ? 'Camera A' : 'Camera B';
+      if (connected) {
+        label.textContent = displayName;
+      } else if (streams === null) {
+        label.textContent = displayName;
+      } else {
+        label.textContent = displayName + ' \u2013 offline';
+      }
+    }
+  }
+
+  function updateButton() {
+    const btn = $('rec-btn');
+    btn.className = 'record-btn ' + state;
+    btn.disabled = state === 'loading';
+
+    if (state === 'idle') {
+      btn.innerHTML = 'Start Recording';
+    } else if (state === 'recording') {
+      const elapsed = serverStartTime
+        ? Math.max(0, (Date.now() - new Date(serverStartTime).getTime()) / 1000)
+        : 0;
+      btn.innerHTML = 'Stop Recording<span class="elapsed">' + formatElapsed(elapsed) + '</span>';
+    } else {
+      btn.innerHTML = '<div class="spinner"></div>';
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    timerInterval = setInterval(updateButton, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
+
+  function showResult(message, isError) {
+    const el = $('result-msg');
+    el.textContent = message;
+    el.className = 'result-msg ' + (isError ? 'error' : 'success');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 8000);
+  }
+
+  function syncStateFromStatus(data) {
+    const aRec = data.camera_a?.status === 'recording';
+    const bRec = data.camera_b?.status === 'recording';
+
+    if (state === 'loading') return;
+
+    if (aRec || bRec) {
+      const st = data.camera_a?.startTime || data.camera_b?.startTime;
+      if (state !== 'recording') {
+        serverStartTime = st;
+        state = 'recording';
+        startTimer();
+      } else if (st) {
+        serverStartTime = st;
+      }
+    } else {
+      if (state === 'recording') {
+        state = 'idle';
+        stopTimer();
+      }
+    }
+    updateButton();
+  }
+
+  async function pollStatus() {
+    try {
+      const res = await fetch('/api/status');
+      if (!res.ok) throw new Error('Status ' + res.status);
+      const data = await res.json();
+
+      consecutiveFailures = 0;
+      $('banner').classList.remove('visible');
+
+      updateConnectionDots(data);
+      syncStateFromStatus(data);
+    } catch {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 2) {
+        $('banner').classList.add('visible');
+      }
+    }
+  }
+
+  function startPolling() {
+    pollStatus();
+    pollInterval = setInterval(pollStatus, 3000);
+  }
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopPolling();
+    } else {
+      startPolling();
+    }
+  });
+
+  async function handleRecordClick() {
+    if (state === 'loading') return;
+
+    if (state === 'idle') {
+      state = 'loading';
+      updateButton();
+      $('result-msg').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/record/start', { method: 'POST' });
+        const data = await res.json();
+
+        if (!res.ok) {
+          state = 'idle';
+          updateButton();
+          showResult(data.error || 'Failed to start recording', true);
+          return;
+        }
+
+        const aOk = data.camera_a && !data.camera_a.error;
+        const bOk = data.camera_b && !data.camera_b.error;
+
+        if (aOk && bOk) {
+          serverStartTime = data.camera_a.startTime || data.camera_b.startTime;
+          state = 'recording';
+          startTimer();
+          updateButton();
+        } else if (aOk || bOk) {
+          const failed = !aOk ? 'Camera A' : 'Camera B';
+          const errMsg = (!aOk ? data.camera_a : data.camera_b).error;
+          serverStartTime = (aOk ? data.camera_a : data.camera_b).startTime;
+          state = 'recording';
+          startTimer();
+          updateButton();
+          showResult(failed + ' failed: ' + errMsg, true);
+        } else {
+          state = 'idle';
+          updateButton();
+          const errors = [data.camera_a?.error, data.camera_b?.error].filter(Boolean).join('; ');
+          showResult('Both cameras failed: ' + errors, true);
+        }
+      } catch (err) {
+        state = 'idle';
+        updateButton();
+        showResult('Network error: ' + err.message, true);
+      }
+    } else if (state === 'recording') {
+      state = 'loading';
+      stopTimer();
+      updateButton();
+
+      try {
+        const res = await fetch('/api/record/stop', { method: 'POST' });
+        const data = await res.json();
+
+        state = 'idle';
+        serverStartTime = null;
+        updateButton();
+
+        if (!res.ok) {
+          showResult(data.error || 'Failed to stop recording', true);
+        } else {
+          const parts = [];
+          for (const cam of ['camera_a', 'camera_b']) {
+            const r = data[cam];
+            if (r?.error) {
+              parts.push(cam.replace('_', ' ') + ': ' + r.error);
+            } else if (r?.file) {
+              parts.push(r.file.filename + ' (' + formatSize(r.file.size) + ')');
+            }
+          }
+          showResult('Saved: ' + parts.join(', '), false);
+          loadRecordings();
+        }
+      } catch (err) {
+        state = 'idle';
+        updateButton();
+        showResult('Network error: ' + err.message, true);
+      }
+    }
+  }
+
+  async function loadRecordings() {
+    try {
+      const res = await fetch('/api/recordings');
+      if (!res.ok) throw new Error('Status ' + res.status);
+      const recordings = await res.json();
+
+      const container = $('recordings-list');
+      const recent = recordings.slice(0, 10);
+
+      if (recent.length === 0) {
+        container.innerHTML = '<div class="empty-msg">No recordings yet</div>';
+        return;
+      }
+
+      container.innerHTML = recent.map(r => `
+        <div class="rec-item">
+          <div class="rec-top">
+            <span class="rec-camera">${r.camera === 'camera_a' ? 'Cam A' : 'Cam B'}</span>
+            <span class="rec-time">${formatTimestamp(r.timestamp)}</span>
+          </div>
+          <div class="rec-details">
+            <span>${formatDuration(r.duration)}</span>
+            <span>${formatSize(r.size)}</span>
+          </div>
+        </div>
+      `).join('');
+    } catch {
+      $('recordings-list').innerHTML = '<div class="empty-msg">Failed to load</div>';
+    }
+  }
+
+  startPolling();
+  loadRecordings();
+</script>
+
+</body>
+</html>
