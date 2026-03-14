@@ -103,6 +103,18 @@ router.get('/recordings/:filename', (req, res) => {
   });
 });
 
+router.delete('/recordings', (req, res) => {
+  try {
+    const result = recorder.deleteAllRecordings();
+    res.json(result);
+  } catch (err) {
+    if (err.message.includes('recording is active')) {
+      return res.status(409).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/recordings/:filename', (req, res) => {
   const { filename } = req.params;
 

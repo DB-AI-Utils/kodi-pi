@@ -250,6 +250,32 @@ export async function listRecordings() {
   return recordings;
 }
 
+export function deleteAllRecordings() {
+  for (const [name, state] of cameras) {
+    if (state.status === 'recording') {
+      throw new Error('Cannot delete while recording is active');
+    }
+  }
+
+  if (!fs.existsSync(RECORDINGS_DIR)) return { deleted: 0 };
+
+  const files = fs.readdirSync(RECORDINGS_DIR).filter(f => FILENAME_PATTERN.test(f));
+  let count = 0;
+
+  for (const filename of files) {
+    const filePath = path.join(RECORDINGS_DIR, filename);
+    fs.unlinkSync(filePath);
+    count++;
+
+    const sidecarPath = filePath.replace(/\.mp4$/, '.json');
+    if (fs.existsSync(sidecarPath)) {
+      fs.unlinkSync(sidecarPath);
+    }
+  }
+
+  return { deleted: count };
+}
+
 export function deleteRecording(filename) {
   if (!FILENAME_PATTERN.test(filename)) {
     throw new Error(`Invalid filename: ${filename}`);
