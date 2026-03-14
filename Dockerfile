@@ -14,6 +14,6 @@ COPY . .
 
 RUN mkdir -p recordings
 
-EXPOSE 8084
+EXPOSE 8085
 
 CMD ["node", "server.js"]

@@ -4,7 +4,7 @@ import cors from 'cors';
 import * as recorder from './services/recorder.js';
 import apiRouter from './routes/api.js';
 
-const PORT = process.env.PORT || 8084;
+const PORT = process.env.PORT || 8085;
 const app = express();
 
 app.use(cors());
