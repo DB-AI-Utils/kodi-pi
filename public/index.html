@@ -243,6 +243,53 @@
   }
   .rec-download:active { opacity: 0.7; }
 
+  .rec-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #3a1e1e;
+    color: #eb5757;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rec-delete:active { opacity: 0.7; }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 28px;
+    margin-bottom: 12px;
+  }
+
+  .section-header .section-title {
+    margin: 0;
+  }
+
+  .delete-all-btn {
+    background: #3a1e1e;
+    color: #eb5757;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .delete-all-btn:active { opacity: 0.7; }
+  .delete-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .rec-actions {
+    display: flex;
+    gap: 6px;
+  }
+
   .empty-msg {
     text-align: center;
     color: #555;
@@ -282,7 +329,10 @@
 <div id="result-msg" class="result-msg" style="display:none"></div>
 
 <div id="recordings-section">
-  <div class="section-title">Recent Recordings</div>
+  <div class="section-header">
+    <div class="section-title">Recent Recordings</div>
+    <button id="delete-all-btn" class="delete-all-btn" onclick="handleDeleteAll()" style="display:none">Delete All</button>
+  </div>
   <div id="recordings-list" class="recordings-list">
     <div class="empty-msg">Loading...</div>
   </div>
@@ -588,8 +638,11 @@
 
       if (recent.length === 0) {
         container.innerHTML = '<div class="empty-msg">No recordings yet</div>';
+        $('delete-all-btn').style.display = 'none';
         return;
       }
+
+      $('delete-all-btn').style.display = '';
 
       container.innerHTML = recent.map(r => `
         <div class="rec-item">
@@ -602,12 +655,50 @@
               <span>${esc(formatDuration(r.duration))}</span>
               <span>${esc(formatSize(r.size))}</span>
             </div>
-            <a class="rec-download" href="/api/recordings/${encodeURIComponent(r.filename)}" download>&#8681; Download</a>
+            <div class="rec-actions">
+              <a class="rec-download" href="/api/recordings/${encodeURIComponent(r.filename)}" download>&#8681; Download</a>
+              <button class="rec-delete" onclick="handleDelete('${esc(r.filename)}')">&#10005; Delete</button>
+            </div>
           </div>
         </div>
       `).join('');
     } catch {
       $('recordings-list').innerHTML = '<div class="empty-msg">Failed to load</div>';
+    }
+  }
+
+  async function handleDelete(filename) {
+    if (!confirm('Delete ' + filename + '?')) return;
+    try {
+      const res = await fetch('/api/recordings/' + encodeURIComponent(filename), { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        showResult(data.error || 'Failed to delete', true);
+        return;
+      }
+      loadRecordings();
+    } catch (err) {
+      showResult('Network error: ' + err.message, true);
+    }
+  }
+
+  async function handleDeleteAll() {
+    if (!confirm('Delete all recordings?')) return;
+    const btn = $('delete-all-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/recordings', { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        showResult(data.error || 'Failed to delete', true);
+      } else {
+        showResult('Deleted ' + data.deleted + ' file(s)', false);
+      }
+      loadRecordings();
+    } catch (err) {
+      showResult('Network error: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
     }
   }
 
