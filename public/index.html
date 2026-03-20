@@ -62,6 +62,44 @@
   .dot.red { background: #c0392b; box-shadow: 0 0 6px #c0392b88; }
   .dot.grey { background: #555; }
 
+  .auto-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .auto-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .auto-label input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  .auto-badge {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .auto-badge.monitoring { background: #555; color: #ccc; }
+  .auto-badge.starting { background: #f39c12; color: #fff; }
+  .auto-badge.recording { background: #27ae60; color: #fff; }
+  .auto-badge.debounce { background: #e67e22; color: #fff; }
+  .auto-badge.hidden { display: none; }
+
   .record-btn {
     display: flex;
     flex-direction: column;
@@ -229,6 +267,14 @@
   </div>
 </div>
 
+<div class="auto-row">
+  <label class="auto-label">
+    <input type="checkbox" id="auto-checkbox" onchange="handleAutoToggle(this.checked)">
+    Auto
+  </label>
+  <span id="auto-badge" class="auto-badge hidden"></span>
+</div>
+
 <button id="rec-btn" class="record-btn idle" onclick="handleRecordClick()">
   Start Recording
 </button>
@@ -344,6 +390,44 @@
     resultTimeout = setTimeout(() => { el.style.display = 'none'; }, 8000);
   }
 
+  function updateAutoState(autoRecord) {
+    const checkbox = $('auto-checkbox');
+    const badge = $('auto-badge');
+
+    if (!autoRecord) {
+      checkbox.checked = false;
+      badge.className = 'auto-badge hidden';
+      return;
+    }
+
+    checkbox.checked = autoRecord.enabled;
+
+    if (!autoRecord.enabled) {
+      badge.className = 'auto-badge hidden';
+      return;
+    }
+
+    const labels = { idle: 'Monitoring', starting: 'Starting', recording: 'Recording', debounce: 'Debounce' };
+    const classes = { idle: 'monitoring', starting: 'starting', recording: 'recording', debounce: 'debounce' };
+    const s = autoRecord.state;
+    badge.textContent = labels[s] || s;
+    badge.className = 'auto-badge ' + (classes[s] || 'monitoring');
+  }
+
+  async function handleAutoToggle(enabled) {
+    try {
+      const res = await fetch('/api/auto-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        updateAutoState(data);
+      }
+    } catch { /* ignore */ }
+  }
+
   function syncStateFromStatus(data) {
     const aRec = data.camera_a?.status === 'recording';
     const bRec = data.camera_b?.status === 'recording';
@@ -378,6 +462,7 @@
       $('banner').classList.remove('visible');
 
       updateConnectionDots(data);
+      updateAutoState(data.autoRecord);
       syncStateFromStatus(data);
     } catch {
       consecutiveFailures++;
@@ -409,6 +494,9 @@
 
   async function handleRecordClick() {
     if (state === 'loading') return;
+
+    $('auto-checkbox').checked = false;
+    $('auto-badge').className = 'auto-badge hidden';
 
     if (state === 'idle') {
       state = 'loading';

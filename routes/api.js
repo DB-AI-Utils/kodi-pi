@@ -2,6 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import * as recorder from '../services/recorder.js';
+import * as autoRecordService from '../services/auto-record.js';
 
 const router = Router();
 const RECORDINGS_DIR = path.resolve(process.env.RECORDINGS_DIR || './recordings');
@@ -51,7 +52,25 @@ async function waitForCameras() {
 router.get('/status', async (req, res) => {
   try {
     const status = await recorder.getStatus();
+    status.autoRecord = autoRecordService.getState();
     res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/auto-record', (req, res) => {
+  res.json(autoRecordService.getState());
+});
+
+router.post('/auto-record', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean' });
+    }
+    await autoRecordService.setEnabled(enabled);
+    res.json(autoRecordService.getState());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -59,6 +78,7 @@ router.get('/status', async (req, res) => {
 
 router.post('/record/start', async (req, res) => {
   try {
+    autoRecordService.disableFromManual();
     await waitForCameras();
     const results = await recorder.startAll();
     res.json(results);
@@ -70,6 +90,7 @@ router.post('/record/start', async (req, res) => {
 
 router.post('/record/stop', async (req, res) => {
   try {
+    autoRecordService.disableFromManual();
     const results = await recorder.stopAll();
     res.json(results);
   } catch (err) {
