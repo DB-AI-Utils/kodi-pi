@@ -177,14 +177,56 @@ export async function startAll() {
 }
 
 export async function stopAll() {
-  const results = {};
+  // Send SIGINT to all cameras simultaneously so they stop at the same moment
+  const toStop = [];
   for (const camera of VALID_CAMERAS) {
+    const state = cameras.get(camera);
+    if (state.status === 'recording' && state.process) {
+      const { process: proc, outputPath } = state;
+      const exitPromise = new Promise((resolve) => {
+        const killTimeout = setTimeout(() => {
+          console.warn(`[${camera}] ffmpeg did not exit after SIGINT, sending SIGKILL`);
+          proc.kill('SIGKILL');
+        }, 5000);
+
+        proc.on('exit', () => {
+          clearTimeout(killTimeout);
+          resolve();
+        });
+      });
+      proc.kill('SIGINT');
+      toStop.push({ camera, exitPromise, outputPath });
+    }
+  }
+
+  // Await all exits in parallel, then probe files
+  const results = {};
+  await Promise.all(toStop.map(async ({ camera, exitPromise, outputPath }) => {
     try {
-      results[camera] = await stopRecording(camera);
+      await exitPromise;
+      let fileInfo = { filename: path.basename(outputPath), duration: 0, size: 0 };
+      try {
+        const stat = fs.statSync(outputPath);
+        fileInfo.size = stat.size;
+        const probeData = await probeDuration(outputPath);
+        fileInfo.duration = probeData.duration;
+        writeSidecar(outputPath, probeData);
+      } catch (err) {
+        console.error(`[${camera}] failed to probe output file: ${err.message}`);
+      }
+      results[camera] = { camera, status: 'idle', file: fileInfo };
     } catch (err) {
       results[camera] = { camera, error: err.message };
     }
+  }));
+
+  // Include cameras that weren't recording
+  for (const camera of VALID_CAMERAS) {
+    if (!results[camera]) {
+      results[camera] = { camera, error: `${camera} is not recording` };
+    }
   }
+
   return results;
 }
 
