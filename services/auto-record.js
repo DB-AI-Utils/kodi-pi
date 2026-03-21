@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import * as recorder from './recorder.js';
+import { fireWebhook } from './webhook.js';
 
 const CONFIG_PATH = path.resolve('auto-record-config.json');
 const RTSP_BASE = process.env.RTSP_BASE || 'rtsp://localhost:8554';
@@ -202,9 +203,11 @@ async function pollDebounce() {
     console.log(`[auto-record] Still sleeping, debounce ${debounceCount}/${DEBOUNCE_THRESHOLD}`);
     if (debounceCount >= DEBOUNCE_THRESHOLD) {
       console.log(`[auto-record] Debounce threshold reached, stopping recording`);
-      try { await recorder.stopAll(); } catch (err) {
+      let stopResults;
+      try { stopResults = await recorder.stopAll(); } catch (err) {
         console.error(`[auto-record] Stop error: ${err.message}`);
       }
+      if (stopResults) fireWebhook('auto-record', stopResults);
       debounceCount = 0;
       transition('idle');
       consecutiveAwake = 0;

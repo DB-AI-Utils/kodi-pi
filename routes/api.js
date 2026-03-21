@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import * as recorder from '../services/recorder.js';
 import * as autoRecordService from '../services/auto-record.js';
+import { fireWebhook } from '../services/webhook.js';
 
 const router = Router();
 const RECORDINGS_DIR = path.resolve(process.env.RECORDINGS_DIR || './recordings');
@@ -92,6 +93,7 @@ router.post('/record/stop', async (req, res) => {
   try {
     autoRecordService.disableFromManual();
     const results = await recorder.stopAll();
+    fireWebhook('manual', results);
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
